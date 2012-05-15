@@ -1,0 +1,170 @@
+<html>
+<head>
+<title></title>
+<script type="text/javascript" src="sylvester.js"></script>
+<script type="text/javascript" src="glUtils.js"></script>
+</head>
+
+<body>
+<canvas id="test"></canvas>
+<script id="shader-fs" type="x-shader/x-fragment">  
+ void main(void){
+ 	gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+ }   
+</script>
+<script id="shader-vs" type="x-shader/x-vertex">
+attribute vec3 aVertexPosition;
+uniform mat4 uMVMatrix;
+uniform mat4 uPMatrix; 
+void main(void) {
+	gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+}   
+</script>
+
+<script type="text/javascript">
+
+/*
+ * 通过 id 获取节点
+ */
+function get(id){
+	return typeof id === 'string' ? document.getElementById(id) : id;
+}
+
+var glToken = ['webgl', 'experimental-webgl', 'webkit-3d', 'moz-webgl'];
+
+/*
+ * 获取WebGL上下文
+ */
+function glGetContext(id){
+	var cvs = get(id);
+	if(!cvs) return null;
+	var gl;
+	for(var i = 0; i < glToken.length; i++){
+		gl = cvs.getContext(glToken[i], { antialias : true, stencil : true });
+		if(gl) return gl;
+	}
+	return null;
+}
+
+/*
+ * 获取 script 节点内部代码
+ */
+function glGetShaderScript(id){
+	var script = get(id);
+	if(!script) return '';
+	return script.text;
+}
+
+/*
+ * 创建 vertex shader 对象
+ */
+function glCreateVertexShader(gl, script){
+	var shader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(shader, script);
+	gl.compileShader(shader);
+	return shader;
+}
+
+/*
+ * 创建 fragment shader 对象
+ */
+function glCreateFragmentShader(gl, script){
+	var shader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(shader, script);
+	gl.compileShader(shader);
+	return shader;
+}
+
+/*
+ * 创建 program 对象
+ */
+function glCreateProgram(gl){
+	return gl.createProgram();
+}
+
+/*
+ * attach shader to program
+ */
+function glAttachShader(gl, program, vShader, fShader){
+	gl.attachShader(program, vShader);
+	gl.attachShader(program, fShader);
+}
+
+/*
+ * link and use program
+ */
+function glActiveProgram(gl, program){
+	gl.linkProgram(program);
+	gl.useProgram(program);
+}
+
+/*
+ * bind vertex data
+ */
+function glBindVertexData(gl, program, attr, data){
+	var pos = gl.getAttribLocation(program, attr);
+	if(pos < 0) return;
+	var buffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+	gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+	gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(pos);
+	buffer = null;
+}
+
+/* ----------------------- */
+
+
+var glCtx = glGetContext('test');
+var fragScript = glGetShaderScript('shader-fs');
+var vertScript = glGetShaderScript('shader-vs');
+
+var fragShader = glCreateFragmentShader(glCtx, fragScript);
+var vertShader= glCreateVertexShader(glCtx, vertScript);
+
+var program = glCreateProgram(glCtx);
+glAttachShader(glCtx, program, vertShader, fragShader);
+glActiveProgram(glCtx, program);
+
+
+var vertices = new Float32Array([  
+	 1.0,	 1.0,	0.0,  
+	-1.0,	 1.0,	0.0,  
+	 1.0,	-1.0,	0.0,  
+	-1.0,	-1.0,	0.0  
+]);
+
+glBindVertexData(glCtx, program, 'aVertexPosition', vertices);
+
+
+glCtx.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+glCtx.clearDepth(1.0);                 // Clear everything
+glCtx.enable(glCtx.DEPTH_TEST);           // Enable depth testing
+glCtx.depthFunc(glCtx.LEQUAL);            // Near things obscure far things
+glCtx.clear(glCtx.COLOR_BUFFER_BIT | glCtx.DEPTH_BUFFER_BIT);
+
+function setMatrixUniforms(gl, program, perspective, matrix) {
+  var pUniform = gl.getUniformLocation(program, "uPMatrix");
+  gl.uniformMatrix4fv(pUniform, false, new Float32Array(perspective.flatten()));
+
+  var mvUniform = gl.getUniformLocation(program, "uMVMatrix");
+  gl.uniformMatrix4fv(mvUniform, false, new Float32Array(matrix.flatten()));
+}
+var v = [-0.0, 0.0, -6.0];
+
+var perspectiveMatrix = makePerspective(45, 640.0/480.0, 0.1, 100.0);
+var mvMatrix;
+mvMatrix = Matrix.I(4);
+mvMatrix = mvMatrix.x(Matrix.Translation($V([v[0], v[1], v[2]])).ensure4x4());
+
+setMatrixUniforms(glCtx, program, perspectiveMatrix, mvMatrix);
+glCtx.drawArrays(glCtx.TRIANGLE_STRIP, 0, 4);
+
+console.log(perspectiveMatrix)
+
+</script>
+
+
+</body>
+
+</html>
