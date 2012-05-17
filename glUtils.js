@@ -191,3 +191,27 @@ function makeOrtho(left, right, bottom, top, znear, zfar)
            [0, 0, 0, 1]]);
 }
 
+
+/* --------------MK--------------- */
+
+Matrix.prototype.rotate = function(deg, axis){
+    var m = Matrix.Rotation(deg * Math.PI / 180.0, $V(axis))//.ensure4x4();
+    if(this.elements[0].length === axis.length){
+        return this.x(m);
+    } else if(this.elements[0].length === 4){
+        return this.x(m.ensure4x4());
+    }
+    return null;
+}
+
+Matrix.prototype.trans = function(vertex){
+    return this.x(Matrix.Translation($V(vertex)).ensure4x4());
+}
+
+Matrix.prototype.f32 = function(){
+    var arr = [];
+    for(var i = 0; i < this.elements.length; i++)
+        for(var j = 0; j < this.elements[i].length; j++)
+            arr.push(this.elements[i][j]);
+    return new Float32Array(arr);
+}
