@@ -1,0 +1,199 @@
+<html>
+<head>
+<title></title>
+<script type="text/javascript" src="sylvester.js"></script>
+<script type="text/javascript" src="glUtils.js"></script>
+</head>
+
+<body>
+<canvas id="test" width="480" height="320"></canvas>
+<script id="shader-fs" type="x-shader/x-fragment">  
+ void main(void){
+ 	gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+ }   
+</script>
+<script id="shader-vs" type="x-shader/x-vertex">
+attribute vec3 aVertexPosition;
+uniform mat4 uMVMatrix;
+uniform mat4 uPMatrix; 
+void main(void) {
+	gl_PointSize = 5.0;
+	gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+}   
+</script>
+
+<script type="text/javascript">
+
+console.log(window.webkitAudioContext);
+
+
+/*
+ * 通过 id 获取节点
+ */
+function get(id){
+	return typeof id === 'string' ? document.getElementById(id) : id;
+}
+
+var glToken = ['webgl', 'experimental-webgl', 'webkit-3d', 'moz-webgl'];
+
+/*
+ * 获取WebGL上下文
+ */
+function glGetContext(id){
+	var cvs = get(id);
+	if(!cvs) return null;
+	var gl;
+	for(var i = 0; i < glToken.length; i++){
+		gl = cvs.getContext(glToken[i], { antialias : false, stencil : true });
+		if(gl) return gl;
+	}
+	return null;
+}
+
+/*
+ * 获取 script 节点内部代码
+ */
+function glGetShaderScript(id){
+	var script = get(id);
+	if(!script) return '';
+	return script.text;
+}
+
+/*
+ * 创建 vertex shader 对象
+ */
+function glCreateVertexShader(gl, script){
+	var shader = gl.createShader(gl.VERTEX_SHADER);
+	gl.shaderSource(shader, script);
+	gl.compileShader(shader);
+	return shader;
+}
+
+/*
+ * 创建 fragment shader 对象
+ */
+function glCreateFragmentShader(gl, script){
+	var shader = gl.createShader(gl.FRAGMENT_SHADER);
+	gl.shaderSource(shader, script);
+	gl.compileShader(shader);
+	return shader;
+}
+
+/*
+ * 创建 program 对象
+ */
+function glCreateProgram(gl){
+	return gl.createProgram();
+}
+
+/*
+ * attach shader to program
+ */
+function glAttachShader(gl, program, vShader, fShader){
+	gl.attachShader(program, vShader);
+	gl.attachShader(program, fShader);
+}
+
+/*
+ * link and use program
+ */
+function glActiveProgram(gl, program){
+	gl.linkProgram(program);
+	gl.useProgram(program);
+}
+
+/*
+ * bind vertex data
+ */
+function glBindVertexData(gl, program, attr, data){
+	var pos = gl.getAttribLocation(program, attr);
+	if(pos < 0) return;
+	var buffer = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+	gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+	gl.vertexAttribPointer(pos, 3, gl.FLOAT, false, 0, 0);
+	gl.enableVertexAttribArray(pos);
+	buffer = null;
+}
+
+function glSetMatrixUniforms(gl, program, name, matrix){
+	var uniform = gl.getUniformLocation(program, name);
+	if(!uniform) return;
+	gl.uniformMatrix4fv(uniform, false, new Float32Array(matrix.flatten()));
+}
+
+/* ----------------------- */
+
+
+var glCtx = glGetContext('test');
+var fragScript = glGetShaderScript('shader-fs');
+var vertScript = glGetShaderScript('shader-vs');
+
+var fragShader = glCreateFragmentShader(glCtx, fragScript);
+var vertShader= glCreateVertexShader(glCtx, vertScript);
+
+var program = glCreateProgram(glCtx);
+glAttachShader(glCtx, program, vertShader, fragShader);
+glActiveProgram(glCtx, program);
+
+var vertex = $V([0.0, 0.0, -4.0]);
+
+var vertices = Matrix.create([  
+	[ 0.0,	 1.0,	0.0 ],  
+	[ 1.0,	 2.0,	0.0 ],
+	[ 2.0,	 3.0,	0.0 ],  
+	[ 3.0,	 4.0,	0.0 ],
+	[ 4.0,	 5.0,	0.0 ],
+	[ 5.0,	 6.0,	0.0 ]
+]);
+
+vertices = vertices.toCols();
+
+
+var len = vertices.elements.length;
+
+
+var mvMatrix = Matrix.I(4);
+mvMatrix = mvMatrix.trans(vertex);//.rotate(30, [0, 1, 0]);
+
+var perspectiveMatrix = makePerspective(145, glCtx.canvas.width/glCtx.canvas.height, 0.1, 100.0);
+var beginMode = 'POINTS';
+/* BeginMode 
+const GLenum POINTS                         = 0x0000;
+const GLenum LINES                          = 0x0001;
+const GLenum LINE_LOOP                      = 0x0002;
+const GLenum LINE_STRIP                     = 0x0003;
+const GLenum TRIANGLES                      = 0x0004;
+const GLenum TRIANGLE_STRIP                 = 0x0005;
+const GLenum TRIANGLE_FAN                   = 0x0006;
+*/
+
+
+
+glCtx.clearColor(0.0, 0.0, 0.0, 1.0);  // Clear to black, fully opaque
+glCtx.clearDepth(1.0);                 // Clear everything
+glCtx.enable(glCtx.DEPTH_TEST);           // Enable depth testing
+glCtx.depthFunc(glCtx.LEQUAL);            // Near things obscure far things
+glCtx.clear(glCtx.COLOR_BUFFER_BIT | glCtx.DEPTH_BUFFER_BIT);
+
+glSetMatrixUniforms(glCtx, program, "uPMatrix", perspectiveMatrix)
+glSetMatrixUniforms(glCtx, program, "uMVMatrix", mvMatrix)
+
+setInterval(function(){
+	glCtx.clear(glCtx.COLOR_BUFFER_BIT | glCtx.DEPTH_BUFFER_BIT);
+	mvMatrix = mvMatrix.rotate(2, [0, 1, 0]);
+	glSetMatrixUniforms(glCtx, program, "uMVMatrix", mvMatrix)
+
+	glBindVertexData(glCtx, program, 'aVertexPosition', vertices.f32());
+	//glCtx.drawArrays(glCtx[beginMode], 0, len);
+	glCtx.drawArrays(glCtx['LINES'], 0, len);
+
+}, 20)
+
+
+</script>
+
+
+</body>
+
+</html>

@@ -215,3 +215,14 @@ Matrix.prototype.f32 = function(){
             arr.push(this.elements[i][j]);
     return new Float32Array(arr);
 }
+
+Matrix.prototype.toCols = function(){
+    var arr = [], t;
+    for(var i = 0; i < this.elements.length; i++){
+        t = this.elements[i].slice(0);
+        t[1] = 0;
+        arr.push(t);
+        arr.push(this.elements[i]);
+    }
+    return Matrix.create(arr);
+}
